@@ -332,7 +332,7 @@ DataMind menggunakan autentikasi berbasis file JSON (`data/users.json`) dengan e
 
 | Nama | NIM | Program Studi |
 |---|---|---|
-| Andre Musari | — | S1 Sains Data, ITSB |
+| Andre | 52250065 | S1 Sains Data, ITSB |
 
 **Dosen Pengampu:** Bakti Siregar, M.Sc., CDS  
 **Mata Kuliah:** Data Science Programming  
