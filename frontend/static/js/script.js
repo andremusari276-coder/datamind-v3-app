@@ -110,6 +110,20 @@ function switchTab(name, el) {
   if (name === 'timeseries') setTimeout(() => loadTSSummary(), 100);
   if (name === 'insight')     loadInsight();
 
+  // Resize semua chart Plotly yang sudah pernah dirender di tab ini,
+  // karena tab baru saja berubah dari display:none -> aktif sehingga
+  // ukuran container sebelumnya (saat chart pertama dirender) bisa
+  // sudah tidak valid lagi.
+  if (tab) {
+    setTimeout(() => {
+      tab.querySelectorAll('.plotly-chart-lg, .plotly-chart').forEach(el => {
+        if (el._plotlyInitialized) {
+          try { Plotly.Plots.resize(el); } catch (e) {}
+        }
+      });
+    }, 120);
+  }
+
   // Column selector untuk viz tabs
   if (name === 'viz_num') setTimeout(() => _buildColumnSelector('num'), 200);
   if (name === 'viz_cat') setTimeout(() => _buildColumnSelector('cat'), 200);
@@ -1049,7 +1063,7 @@ function applyChartStyle(id) {
   mainArea.addEventListener('mouseenter', function() {
     if (!isEnabled()) return;
     hideTimer = setTimeout(function() {
-      sidebar.classList.add('collapsed');
+      sidebar.classList.add('auto-collapsed');
     }, 400);
   });
 
@@ -1059,7 +1073,7 @@ function applyChartStyle(id) {
 
   sidebar.addEventListener('mouseenter', function() {
     clearTimeout(hideTimer);
-    if (isEnabled()) sidebar.classList.remove('collapsed');
+    if (isEnabled()) sidebar.classList.remove('auto-collapsed');
   });
 
   sidebar.addEventListener('mouseleave', function(e) {
@@ -1067,18 +1081,25 @@ function applyChartStyle(id) {
     const to = e.relatedTarget;
     if (to && (mainArea === to || mainArea.contains(to))) {
       hideTimer = setTimeout(function() {
-        sidebar.classList.add('collapsed');
+        sidebar.classList.add('auto-collapsed');
       }, 400);
     }
   });
+
+  // Hover trigger strip - munculin sidebar saat hover di tepi kiri
+  const hoverTrigger = document.getElementById('sidebarHoverTrigger');
+  if (hoverTrigger) {
+    hoverTrigger.addEventListener('mouseenter', function() {
+      clearTimeout(hideTimer);
+      if (isEnabled()) sidebar.classList.remove('auto-collapsed');
+    });
+  }
 
   // Expose for settings toggle
   window.setAutoCollapse = function(enabled) {
     isDisabled = !enabled;
     localStorage.setItem('datamind-auto-collapse', enabled);
-    if (enabled && !isLocked && !sidebar.classList.contains('collapsed')) {
-      // re-enable
-    }
+    if (!enabled) sidebar.classList.remove('auto-collapsed');
   };
 })();
 /* ══════════════════════════════════════════════════════
@@ -1105,6 +1126,27 @@ function vizNavSwitch(tabId, cid) {
     _vizRendered[cid] = true;
     renderSingleViz(cid);
   }
+  // Pastikan chart langsung penuh sesuai lebar panel, tanpa harus klik Style dulu.
+  // Render pertama dan kunjungan ulang sama-sama butuh ini karena panel baru
+  // saja jadi 'display:' (bukan none) sehingga ukurannya belum final saat
+  // Plotly pertama kali menghitung lebar container.
+  _forceVizResize(cid);
+}
+
+function _forceVizResize(cid) {
+  const el = document.getElementById(cid);
+  if (!el) return;
+  const doResize = () => {
+    if (el._plotlyInitialized) {
+      try { Plotly.Plots.resize(el); } catch (e) {}
+    }
+  };
+  // Beberapa kali dengan delay berbeda untuk menutup race-condition:
+  // requestAnimationFrame menunggu 1 paint, lalu fallback timeout
+  // setelah layout/transition CSS benar-benar selesai.
+  requestAnimationFrame(doResize);
+  setTimeout(doResize, 120);
+  setTimeout(doResize, 350);
 }
 
 const _VIZ_KEY_MAP = VIZ_KEY_MAP;
